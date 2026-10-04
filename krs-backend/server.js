@@ -164,15 +164,30 @@ app.post('/api/dosen/ping', auth('dosen_pa'), wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Daftar pengajuan mahasiswa bimbingan, lengkap dengan detail mata kuliah yang diajukan
 app.get('/api/dosen/pengajuan', auth('dosen_pa'), wrap(async (req, res) => {
   const mhs = await User.find({ role: 'mahasiswa', dosen_pa_id: req.user.pid });
   const byId = Object.fromEntries(mhs.map((m) => [m.id, m]));
   const list = await Pengajuan.find({ mahasiswa_id: { $in: mhs.map((m) => m._id) } }).sort({ _id: -1 });
   list.sort((a, b) => (b.status === 'pending') - (a.status === 'pending')); // pending di atas
+
+  // Detail kelas + mata kuliah diambil sekali untuk semua pengajuan
+  const kelas = await Kelas.find({ _id: { $in: list.flatMap((p) => p.kelas_ids) } });
+  const mk = await MataKuliah.find({ kode: { $in: kelas.map((k) => k.kode_mk) } });
+  const infoMk = Object.fromEntries(mk.map((m) => [m.kode, m]));
+  const infoKelas = Object.fromEntries(kelas.map((k) => [k.id, k]));
+
   res.json(list.map((p) => {
     const m = byId[String(p.mahasiswa_id)];
+    const mata_kuliah = p.kelas_ids.map((id) => infoKelas[String(id)]).filter(Boolean).map((k) => ({
+      kode: k.kode_mk,
+      nama: infoMk[k.kode_mk] && infoMk[k.kode_mk].nama,
+      sks: infoMk[k.kode_mk] ? infoMk[k.kode_mk].sks : 0,
+      hari: k.hari, jam_mulai: k.jam_mulai, jam_selesai: k.jam_selesai, ruang: k.ruang
+    }));
     return { id: p.id, status: p.status, catatan: p.catatan, created_at: p.created_at,
-      mahasiswa_id: m.id, nim: m.nim, nama: m.nama, ip_semester: m.ip_semester };
+      mahasiswa_id: m.id, nim: m.nim, nama: m.nama, ip_semester: m.ip_semester,
+      mata_kuliah, total_sks: mata_kuliah.reduce((s, x) => s + (x.sks || 0), 0) };
   }));
 }));
 

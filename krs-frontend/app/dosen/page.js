@@ -28,6 +28,10 @@ function View({ sesi }) {
 
   const buka = (p) => setAktif(p);
 
+  // Ambil data terbaru dari daftar (polling), supaya status/catatan tidak basi
+  const detail = aktif ? daftar.find((x) => x.id === aktif.id) || aktif : null;
+  const matkul = detail ? detail.mata_kuliah || [] : [];
+
   const putuskan = async (p, status) => {
     let catatan = null;
     if (status === 'rejected') {
@@ -51,21 +55,52 @@ function View({ sesi }) {
       nama={sesi.nama} role="Dosen PA" info={info}
     >
       <div className="grid">
-        <div className="card">
-          <h3>Pengajuan Mahasiswa Bimbingan</h3>
-          {!daftar.length && <p>Belum ada pengajuan.</p>}
-          {daftar.map((p) => (
-            <div key={p.id} className={'item ' + p.status + (aktif && aktif.id === p.id ? ' aktif' : '')} onClick={() => buka(p)}>
-              <b>{p.nama}</b> <span className="mono">({p.nim})</span> · IP {p.ip_semester} <span className={'badge ' + p.status}>{p.status}</span>
-              {p.status === 'pending' && (
-                <div className="row" onClick={(e) => e.stopPropagation()}>
-                  <button className="hijau" onClick={() => putuskan(p, 'approved')}>Setujui</button>
-                  <button className="merah" onClick={() => putuskan(p, 'rejected')}>Tolak</button>
+        <div>
+          <div className="card">
+            <h3>Pengajuan Mahasiswa Bimbingan</h3>
+            {!daftar.length && <p>Belum ada pengajuan.</p>}
+            {daftar.map((p) => (
+              <div key={p.id} className={'item ' + p.status + (aktif && aktif.id === p.id ? ' aktif' : '')} onClick={() => buka(p)}>
+                <b>{p.nama}</b> <span className="mono">({p.nim})</span> · IP {p.ip_semester} <span className={'badge ' + p.status}>{p.status}</span>
+                {p.status === 'pending' && (
+                  <div className="row" onClick={(e) => e.stopPropagation()}>
+                    <button className="hijau" onClick={() => putuskan(p, 'approved')}>Setujui</button>
+                    <button className="merah" onClick={() => putuskan(p, 'rejected')}>Tolak</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {detail && (
+            <div className="card">
+              <h3>Mata Kuliah yang Diajukan</h3>
+              <p>{detail.nama} <span className="mono">({detail.nim})</span> · {detail.total_sks || 0} SKS</p>
+              {detail.catatan && <p className="err">Catatan: {detail.catatan}</p>}
+              {!matkul.length ? <p>Tidak ada data mata kuliah.</p> : (
+                <div className="scroll">
+                  <table>
+                    <thead>
+                      <tr><th>Kode</th><th>Mata Kuliah</th><th>SKS</th><th>Jadwal</th><th>Ruang</th></tr>
+                    </thead>
+                    <tbody>
+                      {matkul.map((k) => (
+                        <tr key={k.kode}>
+                          <td className="mono">{k.kode}</td>
+                          <td>{k.nama}</td>
+                          <td>{k.sks}</td>
+                          <td className="jadwal">{k.hari} {k.jam_mulai}-{k.jam_selesai}</td>
+                          <td>{k.ruang}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
-          ))}
+          )}
         </div>
+
         {aktif ? (
           <ChatPoll key={aktif.mahasiswa_id} judul={`Chat dengan ${aktif.nama}`} mid={aktif.mahasiswa_id} saya="dosen_pa" />
         ) : (
